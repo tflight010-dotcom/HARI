@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "Verification": {
+      "title": "M-Pesa Verification",
+      "description": "Simulated identity verification data.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "phone": { "type": "string" },
+        "simulatedPin": { "type": "string" },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "Stored personal details of the borrower.",
+      "type": "object",
+      "properties": {
+        "firstName": { "type": "string" },
+        "middleName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "dateOfBirth": { "type": "string", "format": "date" },
+        "idNumber": { "type": "string" },
+        "phone": { "type": "string" },
+        "altPhone": { "type": "string" },
+        "homeAddress": {
+          "type": "object",
+          "properties": {
+            "county": { "type": "string" },
+            "subCounty": { "type": "string" },
+            "village": { "type": "string" }
+          }
+        },
+        "kycStatus": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "idVerification": {
+          "type": "object",
+          "properties": {
+            "front": { "type": "string" },
+            "back": { "type": "string" },
+            "verifiedAt": { "type": "string", "format": "date-time" },
+            "storageProvider": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["firstName", "lastName", "phone", "idNumber"]
+    },
+    "Application": {
+      "title": "Loan Application",
+      "description": "Details of a loan request.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amountRequested": { "type": "number" },
+        "amountApproved": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "disbursed", "repaid", "defaulted"] },
+        "interestRate": { "type": "number" },
+        "durationDays": { "type": "number" },
+        "totalRepayable": { "type": "number" },
+        "disbursementRef": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amountRequested", "status", "createdAt"]
+    },
+    "Limit": {
+      "title": "Credit Limit",
+      "description": "User's credit scoring data.",
+      "type": "object",
+      "properties": {
+        "fulizaLimit": { "type": "number" },
+        "hustlerFundLimit": { "type": "number" },
+        "calculatedCreditScore": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Primary user information."
+    },
+    "/applications/{applicationId}": {
+      "schema": "Application",
+      "description": "Loan applications."
+    },
+    "/limits/{userId}": {
+      "schema": "Limit",
+      "description": "User credit limit data."
+    }
+  }
+}

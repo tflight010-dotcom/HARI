@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    match /verifications/{userId} {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId);
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.firstName is string && data.firstName.size() <= 50 &&
+             data.lastName is string && data.lastName.size() <= 50 &&
+             data.phone is string && data.phone.size() <= 15 &&
+             data.idNumber is string && data.idNumber.size() <= 15;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) &&
+                    incoming().phone == existing().phone &&
+                    incoming().createdAt == existing().createdAt;
+    }
+
+    // --- Application Validation ---
+    function isValidApplication(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.amountRequested is number && data.amountRequested > 0 &&
+             data.status in ['pending', 'approved', 'disbursed', 'repaid', 'defaulted'];
+    }
+
+    match /applications/{appId} {
+      allow create: if isSignedIn() && isValidId(appId) && isValidApplication(incoming()) &&
+                    incoming().createdAt == request.time;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Status updates are restricted in real apps, but for MVP we allow owner to manage
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && 
+                    isValidApplication(incoming()) &&
+                    incoming().userId == existing().userId &&
+                    incoming().createdAt == existing().createdAt;
+    }
+
+    // --- Limits Validation ---
+    function isValidLimit(data) {
+      return data.fulizaLimit is number && data.hustlerFundLimit is number;
+    }
+
+    match /limits/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidLimit(incoming());
+      allow update: if isOwner(userId) && isValidLimit(incoming());
+    }
+  }
+}
