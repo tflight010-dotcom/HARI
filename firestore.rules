@@ -17,12 +17,14 @@ service cloud.firestore {
     // --- Phone Authentication ---
     match /phoneAuth/{userId} {
       allow create: if isSignedIn() && isValidPhone(incoming().phone) && incoming().userId == request.auth.uid;
-      allow get: if isOwner(resource.data.userId);
+      allow read, list: if isSignedIn() || request.auth == null; // Allow public read for initial login lookup
+      allow delete: if isOwner(userId);
     }
 
     match /verifications/{userId} {
       allow get: if isOwner(userId);
       allow create, update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     // --- User Validation ---
@@ -40,6 +42,7 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidUser(incoming()) &&
                     incoming().phone == existing().phone &&
                     incoming().createdAt == existing().createdAt;
+      allow delete: if isOwner(userId);
     }
 
     // --- Application Validation ---
@@ -58,6 +61,7 @@ service cloud.firestore {
                     isValidApplication(incoming()) &&
                     incoming().userId == existing().userId &&
                     incoming().createdAt == existing().createdAt;
+      allow delete: if isOwner(resource.data.userId);
     }
 
     // --- Limits Validation ---
@@ -69,6 +73,7 @@ service cloud.firestore {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidLimit(incoming());
       allow update: if isOwner(userId) && isValidLimit(incoming());
+      allow delete: if isOwner(userId);
     }
   }
 }
