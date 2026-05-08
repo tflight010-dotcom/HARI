@@ -1316,7 +1316,7 @@ function Dashboard({ user, userData, setUserData }: { user: FirebaseUser, userDa
                 <div className="bg-brand-success/5 border border-brand-success/20 rounded-2xl p-4 space-y-3">
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Send Money To:</p>
-                    <p className="text-lg font-bold text-slate-900">Paybill 123456</p>
+                    <p className="text-lg font-bold text-slate-900">Paybill 197197</p>
                   </div>
                   
                   <div className="border-t border-brand-success/20 pt-3 space-y-1">
