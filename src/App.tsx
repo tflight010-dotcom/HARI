@@ -4,11 +4,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { auth, db, storage } from './lib/firebase';
+import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { motion, AnimatePresence } from 'motion/react';
+import { uploadToCloudinary } from './lib/cloudinary';
 import { 
   Smartphone, 
   User as UserIcon, 
@@ -277,20 +277,34 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     try {
       setVerifying(true);
       
-      // 1. Upload ID Images to Storage (Google Cloud)
+      // 1. Upload ID Images to Cloudinary
       let frontUrl = '';
       let backUrl = '';
 
       if (idFront) {
-        const frontRef = ref(storage, `users/${auth.currentUser.uid}/id_front_${Date.now()}_${idFront.name}`);
-        const snapshot = await uploadBytes(frontRef, idFront);
-        frontUrl = await getDownloadURL(snapshot.ref);
+        try {
+          frontUrl = await uploadToCloudinary(
+            idFront,
+            `pesahari/kyc/${auth.currentUser.uid}`
+          );
+        } catch (err) {
+          console.error('Error uploading front ID:', err);
+          alert('Failed to upload front ID image. Please try again.');
+          return;
+        }
       }
 
       if (idBack) {
-        const backRef = ref(storage, `users/${auth.currentUser.uid}/id_back_${Date.now()}_${idBack.name}`);
-        const snapshot = await uploadBytes(backRef, idBack);
-        backUrl = await getDownloadURL(snapshot.ref);
+        try {
+          backUrl = await uploadToCloudinary(
+            idBack,
+            `pesahari/kyc/${auth.currentUser.uid}`
+          );
+        } catch (err) {
+          console.error('Error uploading back ID:', err);
+          alert('Failed to upload back ID image. Please try again.');
+          return;
+        }
       }
 
       // 2. Calculate score via API
@@ -322,12 +336,11 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
           village: formData.village
         },
         idVerification: {
-          front: frontUrl || 'GOOGLE_FORM',
-          back: backUrl || 'GOOGLE_FORM',
-          method: 'GOOGLE_FORM_SUBMISSION',
-          formLink: 'https://forms.gle/9CqHczpyobSfH2UD7',
-          verifiedAt: serverTimestamp(),
-          storageProvider: frontUrl ? 'GOOGLE_CLOUD_STORAGE' : 'EXTERNAL_GOOGLE_FORMS' 
+          front: frontUrl,
+          back: backUrl,
+          method: 'CLOUDINARY_UPLOAD',
+          uploadedAt: serverTimestamp(),
+          storageProvider: 'CLOUDINARY'
         },
         kycStatus: 'verified',
         createdAt: serverTimestamp()
@@ -345,6 +358,7 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       onComplete();
     } catch (err) {
       console.error(err);
+      alert('An error occurred while completing your profile. Please try again.');
       setVerifying(false);
     }
   };
@@ -571,39 +585,81 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             >
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-slate-900">ID Verification</h2>
-                <p className="text-slate-500 text-sm">Please use our secure Google Form to provide your ID documents.</p>
+                <p className="text-slate-500 text-sm">Upload clear photos of your National ID front and back.</p>
               </div>
               
               <div className="flex-1 flex flex-col space-y-4">
-                <a 
-                  href="https://forms.gle/9CqHczpyobSfH2UD7" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="bg-brand-primary/5 border-2 border-brand-primary p-8 rounded-3xl flex flex-col items-center justify-center space-y-4 hover:bg-brand-primary/10 transition-all group"
-                >
-                  <div className="w-16 h-16 bg-brand-primary text-white rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-brand-primary/20">
-                    <ExternalLink className="w-8 h-8" />
+                {/* ID Front Upload */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">ID Front</label>
+                  <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-6 hover:border-brand-primary transition-colors cursor-pointer group">
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'front')}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      {idFront ? (
+                        <>
+                          <CheckCircle2 className="w-8 h-8 text-brand-success" />
+                          <p className="text-sm font-semibold text-slate-900">{idFront.name}</p>
+                          <p className="text-xs text-slate-500">{(idFront.size / 1024 / 1024).toFixed(2)} MB</p>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-8 h-8 text-slate-300 group-hover:text-brand-primary transition-colors" />
+                          <p className="text-sm font-semibold text-slate-600">Tap to upload ID front</p>
+                          <p className="text-xs text-slate-400">JPG, PNG, or WEBP</p>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-center text-brand-primary">
-                    <div className="font-bold text-lg">Open ID Upload Form</div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Tap to securely capture/upload ID photos</p>
+                </div>
+
+                {/* ID Back Upload */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">ID Back</label>
+                  <div className="relative border-2 border-dashed border-slate-200 rounded-2xl p-6 hover:border-brand-primary transition-colors cursor-pointer group">
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'back')}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      {idBack ? (
+                        <>
+                          <CheckCircle2 className="w-8 h-8 text-brand-success" />
+                          <p className="text-sm font-semibold text-slate-900">{idBack.name}</p>
+                          <p className="text-xs text-slate-500">{(idBack.size / 1024 / 1024).toFixed(2)} MB</p>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-8 h-8 text-slate-300 group-hover:text-brand-primary transition-colors" />
+                          <p className="text-sm font-semibold text-slate-600">Tap to upload ID back</p>
+                          <p className="text-xs text-slate-400">JPG, PNG, or WEBP</p>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </a>
+                </div>
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <div className="flex items-start space-x-3">
                     <AlertCircle className="w-5 h-5 text-brand-primary mt-0.5" />
                     <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                      Important: After you have submitted the Google Form, return here and click "Continue" to complete your account setup.
+                      Your ID images will be securely uploaded to Cloudinary. Please ensure images are clear and well-lit.
                     </p>
                   </div>
                 </div>
 
                 <button 
                   onClick={nextStep} 
-                  className="button-primary w-full mt-auto"
+                  disabled={!idFront || !idBack}
+                  className="button-primary w-full mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  I have submitted the form
+                  Continue
                 </button>
               </div>
             </motion.div>
