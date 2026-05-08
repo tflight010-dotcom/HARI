@@ -662,13 +662,13 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
               </div>
               <div className="space-y-4">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">KES</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">KES</span>
                   <input 
                     type="text"
-                    placeholder="Fuliza Limit"
+                    placeholder="e.g. 50000"
                     value={formData.fulizaLimit}
                     onChange={(e) => setFormData({...formData, fulizaLimit: e.target.value.replace(/\D/g, '')})}
-                    className="input-field pl-14"
+                    className="input-field pl-16"
                   />
                 </div>
                 <button onClick={nextStep} disabled={!formData.fulizaLimit} className="button-primary w-full">Continue</button>
@@ -690,13 +690,13 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
               </div>
               <div className="space-y-4">
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">KES</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">KES</span>
                   <input 
                     type="text"
-                    placeholder="Limit"
+                    placeholder="e.g. 25000"
                     value={formData.hustlerFundLimit}
                     onChange={(e) => setFormData({...formData, hustlerFundLimit: e.target.value.replace(/\D/g, '')})}
-                    className="input-field pl-14"
+                    className="input-field pl-16"
                   />
                 </div>
                 <button onClick={nextStep} disabled={!formData.hustlerFundLimit} className="button-primary w-full">Continue</button>
