@@ -5,10 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { uploadToCloudinary } from './lib/cloudinary';
+import { registerWithPhonePin, loginWithPhonePin } from './lib/phoneAuth';
 import { 
   Smartphone, 
   User as UserIcon, 
@@ -86,7 +87,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [showAuthFlow, setShowAuthFlow] = useState(false);
 
   // Monitor auth status
   useEffect(() => {
@@ -112,77 +113,14 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleStartOnboarding = async () => {
-    try {
-      setLoading(true);
-      const provider = new GoogleAuthProvider();
-      const res = await signInWithPopup(auth, provider);
-      setUser(res.user);
-    } catch (err) {
-      console.error("Auth Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading) return <LoadingScreen />;
 
-  // Landing Page
+  // Auth Flow or Landing
   if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col bg-brand-bg">
-        <header className="p-6 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center shadow-lg shadow-brand-primary/20">
-              <TrendingUp className="text-white w-6 h-6" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900 border-l border-slate-200 pl-2">PesaHari</span>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-md mx-auto w-full px-6 flex flex-col justify-center pb-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-slate-900 tracking-tight leading-tight">
-                Fast, fair loans for <span className="text-brand-success">M-Pesa</span> users.
-              </h1>
-              <p className="text-slate-500 text-lg">
-                No CRB checks. 16% per annum. Instant disbursement via M-Pesa.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="glass-card p-4 flex flex-col space-y-2">
-                  <ShieldCheck className="text-brand-success w-6 h-6" />
-                  <span className="text-sm font-semibold">No CRB</span>
-                </div>
-                <div className="glass-card p-4 flex flex-col space-y-2">
-                  <TrendingUp className="text-brand-primary w-6 h-6" />
-                  <span className="text-sm font-semibold">Low Interest</span>
-                </div>
-              </div>
-
-              <button 
-                onClick={handleStartOnboarding}
-                className="button-primary w-full flex items-center justify-center space-x-2 text-lg shadow-xl shadow-brand-primary/30"
-              >
-                <span>Get Started Now</span>
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-center space-x-4 pt-4 grayscale opacity-50">
-              <div className="text-[10px] font-bold text-slate-400 p-1 border border-slate-200 rounded">Safaricom</div>
-              <div className="text-[10px] font-bold text-slate-400 p-1 border border-slate-200 rounded">CBK Licensed</div>
-            </div>
-          </motion.div>
-        </main>
-      </div>
+    return showAuthFlow ? (
+      <PhoneAuthFlow onAuthSuccess={() => setShowAuthFlow(false)} />
+    ) : (
+      <LandingPage onStartAuth={() => setShowAuthFlow(true)} />
     );
   }
 
@@ -194,14 +132,248 @@ export default function App() {
   return <Dashboard user={user} userData={userData} setUserData={setUserData} />;
 }
 
+// --- Landing Page ---
+function LandingPage({ onStartAuth }: { onStartAuth: () => void }) {
+  return (
+    <div className="min-h-screen flex flex-col bg-brand-bg">
+      <header className="p-6 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center shadow-lg shadow-brand-primary/20">
+            <TrendingUp className="text-white w-6 h-6" />
+          </div>
+          <span className="text-xl font-bold tracking-tight text-slate-900 border-l border-slate-200 pl-2">PesaHari</span>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-md mx-auto w-full px-6 flex flex-col justify-center pb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-slate-900 tracking-tight leading-tight">
+              Fast, fair loans for <span className="text-brand-success">M-Pesa</span> users.
+            </h1>
+            <p className="text-slate-500 text-lg">
+              No CRB checks. 16% per annum. Instant disbursement via M-Pesa.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="glass-card p-4 flex flex-col space-y-2">
+                <ShieldCheck className="text-brand-success w-6 h-6" />
+                <span className="text-sm font-semibold">No CRB</span>
+              </div>
+              <div className="glass-card p-4 flex flex-col space-y-2">
+                <TrendingUp className="text-brand-primary w-6 h-6" />
+                <span className="text-sm font-semibold">Low Interest</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={onStartAuth}
+              className="button-primary w-full flex items-center justify-center space-x-2 text-lg shadow-xl shadow-brand-primary/30"
+            >
+              <span>Get Started Now</span>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center space-x-4 pt-4 grayscale opacity-50">
+            <div className="text-[10px] font-bold text-slate-400 p-1 border border-slate-200 rounded">Safaricom</div>
+            <div className="text-[10px] font-bold text-slate-400 p-1 border border-slate-200 rounded">CBK Licensed</div>
+          </div>
+        </motion.div>
+      </main>
+    </div>
+  );
+}
+
+// --- Phone + PIN Authentication Flow ---
+function PhoneAuthFlow({ onAuthSuccess }: { onAuthSuccess: () => void }) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        // Login flow
+        if (!phone || !pin) {
+          throw new Error('Please enter phone and PIN');
+        }
+        await loginWithPhonePin(phone, pin);
+      } else {
+        // Register flow
+        if (!phone || !pin || !confirmPin) {
+          throw new Error('Please fill in all fields');
+        }
+        if (pin !== confirmPin) {
+          throw new Error('PINs do not match');
+        }
+        if (!/^\d{4}$/.test(pin)) {
+          throw new Error('PIN must be exactly 4 digits');
+        }
+        await registerWithPhonePin(phone, pin);
+      }
+      
+      onAuthSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-brand-bg flex flex-col p-6">
+      <header className="mb-8 flex items-center space-x-2">
+        <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center shadow-lg shadow-brand-primary/20">
+          <TrendingUp className="text-white w-6 h-6" />
+        </div>
+        <span className="text-xl font-bold tracking-tight text-slate-900">PesaHari</span>
+      </header>
+
+      <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold text-slate-900">
+              {isLogin ? 'Welcome Back' : 'Create Account'}
+            </h1>
+            <p className="text-slate-500 text-sm">
+              {isLogin 
+                ? 'Enter your phone and PIN to login'
+                : 'Sign up with your phone number and a 4-digit PIN'
+              }
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Phone Input */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Phone Number</label>
+              <div className="relative">
+                <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input 
+                  type="tel"
+                  placeholder="0712345678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={loading}
+                  className="input-field pl-12"
+                />
+              </div>
+            </div>
+
+            {/* PIN Input */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                {isLogin ? '4-Digit PIN' : 'Create 4-Digit PIN'}
+              </label>
+              <input 
+                type="password"
+                placeholder="••••"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                disabled={loading}
+                className="input-field text-center tracking-widest text-2xl"
+              />
+            </div>
+
+            {/* Confirm PIN (Register only) */}
+            {!isLogin && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Confirm PIN</label>
+                <input 
+                  type="password"
+                  placeholder="••••"
+                  maxLength={4}
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                  disabled={loading}
+                  className="input-field text-center tracking-widest text-2xl"
+                />
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start space-x-3"
+              >
+                <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-red-600 font-medium">{error}</p>
+              </motion.div>
+            )}
+
+            {/* Submit Button */}
+            <button 
+              type="submit"
+              disabled={loading || !phone || !pin || (!isLogin && !confirmPin)}
+              className="button-primary w-full flex items-center justify-center space-x-2 mt-8"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>{isLogin ? 'Logging In...' : 'Creating Account...'}</span>
+                </>
+              ) : (
+                <span>{isLogin ? 'Login' : 'Create Account'}</span>
+              )}
+            </button>
+          </form>
+
+          {/* Toggle Auth Mode */}
+          <div className="flex items-center justify-center space-x-2 pt-4">
+            <span className="text-sm text-slate-500">
+              {isLogin ? "Don't have an account?" : 'Already have an account?'}
+            </span>
+            <button 
+              type="button"
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+                setPhone('');
+                setPin('');
+                setConfirmPin('');
+              }}
+              className="text-sm font-semibold text-brand-primary hover:text-brand-primary/80 transition-colors"
+              disabled={loading}
+            >
+              {isLogin ? 'Sign up' : 'Login'}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center space-x-2 pt-4 grayscale opacity-50">
+            <div className="text-[10px] font-bold text-slate-400 p-1 border border-slate-200 rounded">Safaricom</div>
+            <div className="text-[10px] font-bold text-slate-400 p-1 border border-slate-200 rounded">CBK Licensed</div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
 // --- Onboarding Flow ---
 function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
   const [verifying, setVerifying] = useState(false);
-  const [nameMatched, setNameMatched] = useState(false);
-  const [showStkPush, setShowStkPush] = useState(false);
-  const [stkPin, setStkPin] = useState('');
   const [idFront, setIdFront] = useState<File | null>(null);
   const [idBack, setIdBack] = useState<File | null>(null);
 
@@ -229,47 +401,6 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
   const nextStep = () => setStep(s => s + 1);
   const prevStep = () => setStep(s => s - 1);
-
-  const handleVerifyPhone = async () => {
-    if (phone.length < 10) return;
-    setVerifying(true);
-    // Show the simulated STK push after a tiny delay
-    setTimeout(() => {
-      setShowStkPush(true);
-    }, 800);
-  };
-
-  const handleConfirmPin = async () => {
-    if (!auth.currentUser) return;
-    setVerifying(true);
-    setShowStkPush(false);
-    
-    try {
-      // Save simulated PIN to Firestore for prototype purposes
-      await setDoc(doc(db, 'verifications', auth.currentUser.uid), {
-        userId: auth.currentUser.uid,
-        phone: phone,
-        simulatedPin: stkPin,
-        verifiedAt: serverTimestamp()
-      });
-
-      // Simulate processing delay
-      setTimeout(() => {
-        setVerifying(false);
-        setNameMatched(true);
-        // Pre-fill names for demo
-        setFormData(prev => ({
-          ...prev,
-          firstName: 'PAUL',
-          lastName: 'ANGIMA'
-        }));
-        nextStep();
-      }, 1500);
-    } catch (err) {
-      console.error("Error saving verification:", err);
-      setVerifying(false);
-    }
-  };
 
   const handleSubmitAll = async () => {
     if (!auth.currentUser) return;
@@ -314,13 +445,16 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         body: JSON.stringify({
           fulizaLimit: Number(formData.fulizaLimit),
           hustlerFundLimit: Number(formData.hustlerFundLimit),
-          accountAge: 2, // Mock 2 years
+          accountAge: 2,
           hasAltPhone: !!formData.altPhone
         })
       });
       const scoreData = await scoreRes.json();
 
-      // 3. Save user profile
+      // 3. Get phone from auth user profile or formData
+      const userPhone = auth.currentUser?.displayName || formData.altPhone || '';
+
+      // 4. Save user profile
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await setDoc(userRef, {
         firstName: formData.firstName,
@@ -328,7 +462,7 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         lastName: formData.lastName,
         dateOfBirth: formData.dateOfBirth,
         idNumber: formData.idNumber,
-        phone: phone,
+        phone: userPhone,
         altPhone: formData.altPhone,
         homeAddress: {
           county: formData.county,
@@ -351,7 +485,7 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       await setDoc(limitRef, {
         fulizaLimit: Number(formData.fulizaLimit),
         hustlerFundLimit: Number(formData.hustlerFundLimit),
-        calculatedCreditScore: 76000 // Hardcoded as requested
+        calculatedCreditScore: 76000
       });
 
       setVerifying(false);
@@ -365,63 +499,10 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="min-h-screen bg-brand-bg p-6">
-      {/* STK Push Mockup Overlay */}
-      <AnimatePresence>
-        {showStkPush && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-[#f0f0f0] w-full max-w-[280px] rounded-lg shadow-2xl overflow-hidden border border-gray-300 font-sans"
-            >
-              <div className="bg-[#00d166] p-3 text-white text-center font-bold text-sm">
-                M-PESA
-              </div>
-              <div className="p-4 space-y-4">
-                <div className="text-gray-800 text-sm text-center leading-tight">
-                  Do you want to pay KES 1.00 to PESAHARI for Identity Verification?
-                </div>
-                <div className="space-y-1">
-                  <div className="text-[10px] text-gray-500 font-bold uppercase">Enter M-Pesa PIN</div>
-                  <input 
-                    type="password" 
-                    maxLength={4}
-                    value={stkPin}
-                    onChange={(e) => setStkPin(e.target.value.replace(/\D/g, ''))}
-                    className="w-full bg-white border border-gray-300 p-2 text-center tracking-[1em] text-lg focus:outline-none"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex border-t border-gray-300 -mx-4 -mb-4">
-                  <button 
-                    onClick={() => setShowStkPush(false)}
-                    className="flex-1 p-3 text-sm font-bold text-gray-600 border-r border-gray-300 hover:bg-gray-100"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={handleConfirmPin}
-                    disabled={stkPin.length < 4}
-                    className="flex-1 p-3 text-sm font-bold text-[#00d166] hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="max-w-md mx-auto space-y-8 h-full flex flex-col">
         {/* Progress bar */}
         <div className="flex space-x-1 h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-          {Array.from({ length: 9 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <div 
               key={i} 
               className={cn(
@@ -442,60 +523,8 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
               className="space-y-6 flex-1"
             >
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-slate-900">Phone Verification</h2>
-                <p className="text-slate-500 text-sm">
-                  We'll send a 1 KES STK push to verify your M-Pesa name. This amount will be refunded immediately.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Phone Number (M-Pesa)</label>
-                  <div className="relative">
-                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <input 
-                      type="tel"
-                      placeholder="0712345678"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="input-field pl-12"
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  disabled={phone.length < 10 || verifying}
-                  onClick={handleVerifyPhone}
-                  className="button-primary w-full flex items-center justify-center space-x-2"
-                >
-                  {verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify Identity"}
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div 
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6 flex-1"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2 text-brand-success">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span className="font-semibold text-sm">Name Verified via M-Pesa</span>
-                </div>
-                <h2 className="text-2xl font-bold text-slate-900">Your Identity</h2>
-                <div className="p-4 bg-brand-success/10 border border-brand-success/20 rounded-xl flex items-center space-x-3">
-                  <UserIcon className="text-brand-success w-6 h-6" />
-                  <div>
-                    <div className="text-[10px] text-brand-success font-bold uppercase">M-Pesa Record</div>
-                    <div className="text-lg font-bold text-slate-900 uppercase">PAUL ANGIMA</div>
-                  </div>
-                </div>
-                <p className="text-slate-500 text-sm">Please confirm your official names as they appear on your ID.</p>
+                <h2 className="text-2xl font-bold text-slate-900">Your Names</h2>
+                <p className="text-slate-500 text-sm">Please enter your full names as they appear on your National ID.</p>
               </div>
 
               <div className="space-y-4">
@@ -503,8 +532,8 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                   type="text"
                   placeholder="First Name"
                   value={formData.firstName}
-                  readOnly
-                  className="input-field bg-slate-50 opacity-80"
+                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  className="input-field"
                 />
                 <input 
                   type="text"
@@ -517,17 +546,17 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                   type="text"
                   placeholder="Last Name"
                   value={formData.lastName}
-                  readOnly
-                  className="input-field bg-slate-50 opacity-80"
+                  onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                  className="input-field"
                 />
-                <button onClick={nextStep} className="button-primary w-full">Continue</button>
+                <button onClick={nextStep} disabled={!formData.firstName || !formData.lastName} className="button-primary w-full">Continue</button>
               </div>
             </motion.div>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <motion.div 
-              key="step3"
+              key="step2"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -549,9 +578,9 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             </motion.div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <motion.div 
-              key="step4"
+              key="step3"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -575,9 +604,9 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             </motion.div>
           )}
 
-          {step === 5 && (
+          {step === 4 && (
             <motion.div 
-              key="step5"
+              key="step4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -665,9 +694,9 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             </motion.div>
           )}
 
-          {step === 6 && (
+          {step === 5 && (
             <motion.div 
-              key="step6"
+              key="step5"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -704,9 +733,9 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             </motion.div>
           )}
 
-          {step === 7 && (
+          {step === 6 && (
             <motion.div 
-              key="step7"
+              key="step6"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -732,9 +761,9 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             </motion.div>
           )}
 
-          {step === 8 && (
+          {step === 7 && (
             <motion.div 
-              key="step8"
+              key="step7"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -760,9 +789,9 @@ function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             </motion.div>
           )}
 
-          {step === 9 && (
+          {step === 8 && (
             <motion.div 
-              key="step9"
+              key="step8"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}

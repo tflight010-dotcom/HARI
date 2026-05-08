@@ -49,12 +49,16 @@ export async function uploadToCloudinary(
     );
 
     if (!response.ok) {
-      throw new Error(`Upload failed with status ${response.status}`);
+      const errorData = await response.text();
+      console.error('Cloudinary response error:', response.status, errorData);
+      throw new Error(`Upload failed with status ${response.status}: ${errorData}`);
     }
 
     const data = await response.json();
+    console.log('Cloudinary upload success:', data);
 
     if (!data.secure_url) {
+      console.error('No secure_url in response:', data);
       throw new Error('No URL returned from Cloudinary');
     }
 

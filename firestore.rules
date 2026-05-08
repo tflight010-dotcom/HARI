@@ -12,6 +12,13 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isValidPhone(phone) { return phone is string && phone.size() >= 10 && phone.size() <= 15; }
+
+    // --- Phone Authentication ---
+    match /phoneAuth/{userId} {
+      allow create: if isSignedIn() && isValidPhone(incoming().phone) && incoming().userId == request.auth.uid;
+      allow get: if isOwner(resource.data.userId);
+    }
 
     match /verifications/{userId} {
       allow get: if isOwner(userId);
