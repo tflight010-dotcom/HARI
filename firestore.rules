@@ -47,7 +47,6 @@ service cloud.firestore {
                     incoming().createdAt == request.time;
       allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // Status updates are restricted in real apps, but for MVP we allow owner to manage
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid && 
                     isValidApplication(incoming()) &&
                     incoming().userId == existing().userId &&

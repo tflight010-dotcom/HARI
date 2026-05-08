@@ -20,7 +20,18 @@ git push origin $GIT_BRANCH
 echo "✅ Code pushed"
 echo ""
 
-# Step 2: Deploy on server
+PS C:\Users\Administrator\Documents\HARI> git commit -m "fixed all"                                    
+[main 76d798e] fixed all
+ 9 files changed, 1075 insertions(+), 336 deletions(-)
+ create mode 100644 DEPLOYMENT_CHECKLIST.md
+ create mode 100644 DEPLOYMENT_UBUNTU.md
+ create mode 100644 GIT_WORKFLOW.md
+ create mode 100644 MULTI_APP_GUIDE.md
+ create mode 100644 deploy.sh
+PS C:\Users\Administrator\Documents\HARI> git push origin main     
+remote: Permission to tflight010-dotcom/HARI.git denied to imboss96.
+fatal: unable to access 'https://github.com/tflight010-dotcom/HARI/': The requested URL returned error: 403
+PS C:\Users\Administrator\Documents\HARI> # Step 2: Deploy on server
 echo "⚙️  Deploying on server..."
 ssh $SERVER_USER@$SERVER_IP << 'REMOTE_CMD'
 APP_PATH="/opt/pesahari"

@@ -766,6 +766,7 @@ function Dashboard({ user, userData, setUserData }: { user: FirebaseUser, userDa
   const [showNotifications, setShowNotifications] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showRefContacts, setShowRefContacts] = useState(false);
+  const [showRepayModal, setShowRepayModal] = useState(false);
   const [editData, setEditData] = useState({ firstName: '', lastName: '', altPhone: '' });
 
   useEffect(() => {
@@ -966,7 +967,7 @@ function Dashboard({ user, userData, setUserData }: { user: FirebaseUser, userDa
                 <span className="text-sm font-bold text-slate-700 tracking-tight">Apply Loan</span>
               </button>
               <button 
-                onClick={() => alert("To repay: Send KES to Paybill 123456 (Account: PAUL ANGIMA)")}
+                onClick={() => setShowRepayModal(true)}
                 className="glass-card p-5 flex flex-col items-center justify-center space-y-3 hover:bg-white transition-all group active:scale-95"
               >
                 <div className="w-12 h-12 bg-brand-success/10 rounded-2xl flex items-center justify-center text-brand-success group-hover:bg-brand-success group-hover:text-white transition-all shadow-sm">
@@ -1273,6 +1274,69 @@ function Dashboard({ user, userData, setUserData }: { user: FirebaseUser, userDa
                     Update
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Repay Modal */}
+      <AnimatePresence>
+        {showRepayModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            onClick={() => setShowRepayModal(false)}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white w-full max-w-sm rounded-3xl p-6 space-y-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-brand-success/10 rounded-2xl flex items-center justify-center text-brand-success">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Repayment Instructions</h3>
+                </div>
+                <button 
+                  onClick={() => setShowRepayModal(false)} 
+                  className="text-slate-400 hover:text-slate-600 font-bold text-lg"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-brand-success/5 border border-brand-success/20 rounded-2xl p-4 space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Send Money To:</p>
+                    <p className="text-lg font-bold text-slate-900">Paybill 123456</p>
+                  </div>
+                  
+                  <div className="border-t border-brand-success/20 pt-3 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Name:</p>
+                    <p className="text-lg font-bold text-slate-900">PAUL ANGIMA</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    💳 Use M-Pesa to send payment to the Paybill number above. Your account will be updated automatically within 1-2 minutes.
+                  </p>
+                </div>
+
+                <button 
+                  onClick={() => setShowRepayModal(false)}
+                  className="button-primary w-full py-4 text-base shadow-xl shadow-brand-primary/20"
+                >
+                  Got It, Thanks
+                </button>
               </div>
             </motion.div>
           </motion.div>
